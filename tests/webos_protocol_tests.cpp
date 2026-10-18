@@ -5,9 +5,11 @@
 #include "webos_model.h"
 #include "webos_protocol.h"
 #include "webos_settings.h"
+#include "webos_wol.h"
 
 #include <algorithm>
 #include <map>
+#include <optional>
 #include <string>
 
 using namespace phicore::webos::ipc;
@@ -253,27 +255,89 @@ void testDeviceIdFor()
     PHI_CHECK(deviceIdFor(adapterWith("", "", 0), s) == "webos-tv");
 }
 
+bool hasRw(const v1::Channel &c, bool writable)
+{
+    return v1::hasFlag(c.flags, v1::ChannelFlag::Readable) && v1::hasFlag(c.flags, v1::ChannelFlag::Reportable)
+           && v1::hasFlag(c.flags, v1::ChannelFlag::Writable) == writable;
+}
+
+bool sameChoices(const v1::AdapterConfigOptionList &a, const v1::AdapterConfigOptionList &b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (a[i].value != b[i].value || a[i].label != b[i].label)
+            return false;
+    }
+    return true;
+}
+
 void testBuildChannels()
 {
-    const v1::ChannelList channels = buildChannels();
-    PHI_CHECK(channels.size() == 3);
-    if (channels.size() != 3)
+    const v1::AdapterConfigOptionList inputs{{"HDMI_1", "PlayStation"}, {"HDMI_2", "HDMI_2"}};
+    const v1::AdapterConfigOptionList apps{{"netflix", "Netflix"}, {"youtube.leanback.v4", "YouTube"}, {"plex", "Plex"}};
+    const v1::ChannelList channels = buildChannels(inputs, apps);
+    PHI_CHECK(channels.size() == 7);
+    if (channels.size() != 7)
         return;
-    PHI_CHECK(channels[0].externalId == "connectivity");
-    PHI_CHECK(channels[1].externalId == "playState");
-    PHI_CHECK(channels[2].externalId == "app");
-    for (const v1::Channel &c : channels) {
-        PHI_CHECK(v1::hasFlag(c.flags, v1::ChannelFlag::Readable));
-        PHI_CHECK(v1::hasFlag(c.flags, v1::ChannelFlag::Reportable));
-        PHI_CHECK(!v1::hasFlag(c.flags, v1::ChannelFlag::Writable));
-    }
-    PHI_CHECK(channels[0].kind == v1::ChannelKind::ConnectivityStatus);
-    PHI_CHECK(channels[1].dataType == v1::ChannelDataType::String);
+    PHI_CHECK(channels[0].externalId == "power");
+    PHI_CHECK(channels[1].externalId == "volume");
+    PHI_CHECK(channels[2].externalId == "mute");
+    PHI_CHECK(channels[3].externalId == "input");
+    PHI_CHECK(channels[4].externalId == "app");
+    PHI_CHECK(channels[5].externalId == "playState");
+    PHI_CHECK(channels[6].externalId == "connectivity");
+
+    PHI_CHECK(channels[0].kind == v1::ChannelKind::PowerOnOff);
+    PHI_CHECK(channels[0].dataType == v1::ChannelDataType::Bool);
+    PHI_CHECK(hasRw(channels[0], true));
+
+    PHI_CHECK(channels[1].kind == v1::ChannelKind::Volume);
+    PHI_CHECK(channels[1].dataType == v1::ChannelDataType::Int);
+    PHI_CHECK(channels[1].minValue == 0.0 && channels[1].maxValue == 100.0 && channels[1].stepValue == 1.0);
+    PHI_CHECK(hasRw(channels[1], true));
+
+    PHI_CHECK(channels[2].kind == v1::ChannelKind::Mute);
+    PHI_CHECK(channels[2].dataType == v1::ChannelDataType::Bool);
+    PHI_CHECK(hasRw(channels[2], true));
+
+    PHI_CHECK(channels[3].kind == v1::ChannelKind::HdmiInput);
+    PHI_CHECK(channels[3].dataType == v1::ChannelDataType::String);
+    PHI_CHECK(hasRw(channels[3], true));
+    PHI_CHECK(sameChoices(channels[3].choices, inputs));
+
+    PHI_CHECK(channels[4].kind == v1::ChannelKind::Unknown);
+    PHI_CHECK(channels[4].dataType == v1::ChannelDataType::String);
+    PHI_CHECK(hasRw(channels[4], true));
+    PHI_CHECK(sameChoices(channels[4].choices, apps));
+
+    PHI_CHECK(channels[5].dataType == v1::ChannelDataType::String);
+    PHI_CHECK(hasRw(channels[5], false));
     std::vector<std::string> values;
-    for (const auto &choice : channels[1].choices)
+    for (const auto &choice : channels[5].choices)
         values.push_back(choice.value);
     PHI_CHECK((values == std::vector<std::string>{"playing", "paused", "idle", "unknown"}));
-    PHI_CHECK(channels[1].choices.size() == 4 && channels[1].choices[0].label == "Playing");
+    PHI_CHECK(channels[5].choices.size() == 4 && channels[5].choices[0].label == "Playing");
+
+    PHI_CHECK(channels[6].kind == v1::ChannelKind::ConnectivityStatus);
+    PHI_CHECK(channels[6].dataType == v1::ChannelDataType::Enum);
+    PHI_CHECK(hasRw(channels[6], false));
+
+    // Empty lists give empty choices, still seven channels.
+    const v1::ChannelList bare = buildChannels({}, {});
+    PHI_CHECK(bare.size() == 7 && bare[3].choices.empty() && bare[4].choices.empty());
+}
+
+void testBuildInputAndAppChannel()
+{
+    const v1::AdapterConfigOptionList inputs{{"HDMI_3", "Switch"}};
+    const v1::Channel in = buildInputChannel(inputs);
+    PHI_CHECK(in.externalId == "input" && in.kind == v1::ChannelKind::HdmiInput);
+    PHI_CHECK(sameChoices(in.choices, inputs));
+    const v1::AdapterConfigOptionList apps{{"netflix", "Netflix"}, {"plex", "Plex"}};
+    const v1::Channel app = buildAppChannel(apps);
+    PHI_CHECK(app.externalId == "app" && app.kind == v1::ChannelKind::Unknown);
+    PHI_CHECK(sameChoices(app.choices, apps));
 }
 
 void testBuildDevice()
@@ -284,6 +348,112 @@ void testBuildDevice()
     PHI_CHECK(d.manufacturer == "LG Electronics");
     PHI_CHECK(d.name == "Living room");
     PHI_CHECK(d.model == "OLED55C1");
+    PHI_CHECK(d.mediaPlayerFeatures
+              == (v1::MediaPlayerFeature::Play | v1::MediaPlayerFeature::Pause | v1::MediaPlayerFeature::Stop));
+}
+
+void testIsSuccess()
+{
+    const auto ok = [](const char *text) { return isSuccess(parseMessage(text)); };
+    PHI_CHECK(ok(R"({"type":"response","id":"x","payload":{}})"));
+    PHI_CHECK(ok(R"({"type":"response","id":"x"})"));
+    PHI_CHECK(ok(R"({"type":"response","id":"x","payload":{"returnValue":true}})"));
+    PHI_CHECK(!ok(R"({"type":"response","id":"x","payload":{"returnValue":false}})"));
+    PHI_CHECK(!ok(R"({"type":"error","id":"x","error":"401 insufficient permissions","payload":{}})"));
+    PHI_CHECK(!ok(R"({"type":"registered","id":"register","payload":{"client-key":"k"}})"));
+}
+
+void testPowerOnFrom()
+{
+    const auto power = [](const char *text) { return powerOnFrom(parseObject(text)); };
+    PHI_CHECK(power(R"({"state":"Active"})") == std::optional<bool>(true));
+    PHI_CHECK(power(R"({"state":"Screen Off"})") == std::optional<bool>(true));
+    PHI_CHECK(power(R"({"state":"Screen Saver"})") == std::optional<bool>(true));
+    PHI_CHECK(power(R"({"state":"Active Standby"})") == std::optional<bool>(false));
+    PHI_CHECK(power(R"({"state":"Suspend"})") == std::optional<bool>(false));
+    PHI_CHECK(!power("{}").has_value());
+}
+
+void testVolumeFrom()
+{
+    auto v = volumeFrom(parseObject(R"({"volume":12,"muted":false})"));
+    PHI_CHECK(v.volume == std::optional<int>(12) && v.muted == std::optional<bool>(false));
+
+    v = volumeFrom(parseObject(R"({"volumeStatus":{"volume":30,"muteStatus":true}})"));
+    PHI_CHECK(v.volume == std::optional<int>(30) && v.muted == std::optional<bool>(true));
+
+    v = volumeFrom(parseObject(R"({"volume":150})"));
+    PHI_CHECK(v.volume == std::optional<int>(100));
+    v = volumeFrom(parseObject(R"({"volume":-5})"));
+    PHI_CHECK(v.volume == std::optional<int>(0));
+
+    v = volumeFrom(parseObject("{}"));
+    PHI_CHECK(!v.volume.has_value() && !v.muted.has_value());
+
+    v = volumeFrom(parseObject(R"({"volume":7,"muted":"yes"})"));
+    PHI_CHECK(v.volume == std::optional<int>(7) && !v.muted.has_value());
+}
+
+void testInputsFrom()
+{
+    const auto inputs = inputsFrom(parseObject(
+        R"({"devices":[{"id":"HDMI_1","label":"PlayStation","appId":"com.webos.app.hdmi1"},{"id":"HDMI_2","appId":"com.webos.app.hdmi2"},{"label":"no id"}]})"));
+    PHI_CHECK(inputs.size() == 2);
+    if (inputs.size() == 2) {
+        PHI_CHECK(inputs[0].id == "HDMI_1" && inputs[0].label == "PlayStation" && inputs[0].appId == "com.webos.app.hdmi1");
+        PHI_CHECK(inputs[1].id == "HDMI_2" && inputs[1].label == "HDMI_2" && inputs[1].appId == "com.webos.app.hdmi2");
+    }
+    PHI_CHECK(inputsFrom(parseObject("{}")).empty());
+    PHI_CHECK(inputsFrom(parseObject(R"({"devices":"x"})")).empty());
+    PHI_CHECK(inputsFrom(parseObject(R"({"devices":{"id":"HDMI_1"}})")).empty());
+}
+
+bool isMagicPacketFor(const std::string &p, const unsigned char (&mac)[6])
+{
+    if (p.size() != 102)
+        return false;
+    for (int i = 0; i < 6; ++i) {
+        if (static_cast<unsigned char>(p[static_cast<std::size_t>(i)]) != 0xFF)
+            return false;
+    }
+    for (int rep = 0; rep < 16; ++rep) {
+        for (int i = 0; i < 6; ++i) {
+            if (static_cast<unsigned char>(p[static_cast<std::size_t>(6 + rep * 6 + i)]) != mac[i])
+                return false;
+        }
+    }
+    return true;
+}
+
+void testWakeOnLanPacket()
+{
+    const unsigned char mac[6] = {0x44, 0xcb, 0x8b, 0x81, 0x89, 0xe4};
+    PHI_CHECK(isMagicPacketFor(wakeOnLanPacket("44:cb:8b:81:89:e4"), mac));
+    PHI_CHECK(isMagicPacketFor(wakeOnLanPacket("44-CB-8B-81-89-E4"), mac));
+    PHI_CHECK(isMagicPacketFor(wakeOnLanPacket("44cb8b8189e4"), mac));
+
+    PHI_CHECK(wakeOnLanPacket("").empty());
+    PHI_CHECK(wakeOnLanPacket("44:cb:8b").empty());
+    PHI_CHECK(wakeOnLanPacket("zz:zz:zz:zz:zz:zz").empty());
+    PHI_CHECK(wakeOnLanPacket("44:cb:8b:81:89:e4:01").empty());
+    PHI_CHECK(wakeOnLanPacket("44:cb:8b:81:89:e").empty());
+    PHI_CHECK(wakeOnLanPacket("44cb8b8189e").empty());
+}
+
+void testSettingsMac()
+{
+    auto s = settingsFromAdapter(adapterWith("h", "", 0), parseObject(R"({"macAddress":" 44:CB:8B:81:89:E4 "})"));
+    PHI_CHECK(s.macAddress == "44:cb:8b:81:89:e4");
+    s = settingsFromAdapter(adapterWith("h", "", 0), Json::object());
+    PHI_CHECK(s.macAddress.empty());
+}
+
+void testMacFromArpTable()
+{
+    // TEST-NET-3, never on a LAN: not in the neighbour table.
+    PHI_CHECK(macFromArpTable("203.0.113.77").empty());
+    PHI_CHECK(macFromArpTable("").empty());
+    PHI_CHECK(macFromArpTable("not an ip").empty());
 }
 
 } // namespace
@@ -305,6 +475,14 @@ int main()
     testSettingsUrl();
     testDeviceIdFor();
     testBuildChannels();
+    testBuildInputAndAppChannel();
     testBuildDevice();
+    testIsSuccess();
+    testPowerOnFrom();
+    testVolumeFrom();
+    testInputsFrom();
+    testWakeOnLanPacket();
+    testSettingsMac();
+    testMacFromArpTable();
     return phi::testing::report("webos_protocol_tests");
 }

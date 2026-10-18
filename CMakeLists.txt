@@ -35,6 +35,7 @@ add_library(phi_adapter_webos_core STATIC
     src/webos_settings.cpp
     src/webos_socket.cpp
     src/webos_ws_client.cpp
+    src/webos_wol.cpp
 )
 target_compile_features(phi_adapter_webos_core PUBLIC cxx_std_20)
 set_target_properties(phi_adapter_webos_core PROPERTIES POSITION_INDEPENDENT_CODE ON)

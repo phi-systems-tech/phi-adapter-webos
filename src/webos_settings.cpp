@@ -32,6 +32,7 @@ WebosSettings settingsFromAdapter(const v1::Adapter &adapter, const Json &meta)
 
     out.clientKey = str::trimmed(jsonString(meta, "clientKey"));
     out.certFingerprint = str::toLower(str::trimmed(jsonString(meta, "certFingerprint")));
+    out.macAddress = str::toLower(str::trimmed(jsonString(meta, "macAddress")));
     const int retry = jsonInt(meta, "retryIntervalMs", kDefaultRetryIntervalMs);
     out.retryIntervalMs = retry >= 1000 ? retry : kDefaultRetryIntervalMs;
     return out;

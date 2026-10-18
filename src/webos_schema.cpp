@@ -59,7 +59,11 @@ v1::AdapterConfigSection section()
     v1::AdapterConfigField fingerprint = field("certFingerprint", Type::String, "Certificate (SHA-256)",
                                                "Pinned on first contact. Clear it if the TV got a new one.");
 
-    out.fields = {host, port, useTls, retry, clientKey, fingerprint};
+    v1::AdapterConfigField mac = field("macAddress", Type::String, "MAC address",
+                                       "For switching the TV on (Wake-on-LAN). Learnt while the TV is on; \"Turn on"
+                                       " via Wi-Fi\" has to be on in the TV's settings.");
+
+    out.fields = {host, port, useTls, retry, clientKey, fingerprint, mac};
     return out;
 }
 

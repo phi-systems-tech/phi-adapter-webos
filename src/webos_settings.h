@@ -24,6 +24,8 @@ struct WebosSettings {
     std::string clientKey;
     /// Lower-case hex SHA-256 of the TV's certificate; empty until first contact.
     std::string certFingerprint;
+    /// For Wake-on-LAN; learnt from the neighbour table while the TV is on.
+    std::string macAddress;
     int retryIntervalMs = kDefaultRetryIntervalMs;
 
     [[nodiscard]] bool hasHost() const { return !host.empty(); }

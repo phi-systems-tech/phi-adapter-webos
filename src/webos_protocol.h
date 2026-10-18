@@ -9,9 +9,12 @@
 
 #include "webos_json.h"
 
+#include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace phicore::webos::ipc {
 
@@ -21,11 +24,29 @@ inline constexpr const char kIdSystemInfo[] = "systemInfo";
 inline constexpr const char kIdMedia[] = "media";
 inline constexpr const char kIdApp[] = "app";
 inline constexpr const char kIdLaunchPoints[] = "launchPoints";
+inline constexpr const char kIdPower[] = "power";
+inline constexpr const char kIdVolume[] = "volume";
+inline constexpr const char kIdInputs[] = "inputs";
+/// Commands go out as `cmd:<n>`; their answers are routed by the prefix.
+inline constexpr std::string_view kCommandIdPrefix = "cmd:";
 
 inline constexpr const char kUriSystemInfo[] = "ssap://system/getSystemInfo";
 inline constexpr const char kUriMediaForeground[] = "ssap://com.webos.media/getForegroundAppInfo";
 inline constexpr const char kUriAppForeground[] = "ssap://com.webos.applicationManager/getForegroundAppInfo";
 inline constexpr const char kUriLaunchPoints[] = "ssap://com.webos.applicationManager/listLaunchPoints";
+inline constexpr const char kUriPowerState[] = "ssap://com.webos.service.tvpower/power/getPowerState";
+inline constexpr const char kUriVolume[] = "ssap://audio/getVolume";
+inline constexpr const char kUriInputs[] = "ssap://tv/getExternalInputList";
+
+inline constexpr const char kUriTurnOff[] = "ssap://system/turnOff";
+inline constexpr const char kUriScreenOn[] = "ssap://com.webos.service.tvpower/power/turnOnScreen";
+inline constexpr const char kUriSetVolume[] = "ssap://audio/setVolume";
+inline constexpr const char kUriSetMute[] = "ssap://audio/setMute";
+inline constexpr const char kUriSwitchInput[] = "ssap://tv/switchInput";
+inline constexpr const char kUriLaunch[] = "ssap://system.launcher/launch";
+inline constexpr const char kUriPlay[] = "ssap://media.controls/play";
+inline constexpr const char kUriPause[] = "ssap://media.controls/pause";
+inline constexpr const char kUriStop[] = "ssap://media.controls/stop";
 
 /**
  * @brief The register message.
@@ -70,6 +91,39 @@ const char *playStateName(PlayState state);
 
 /// `appId` from an applicationManager foreground answer; empty when none.
 std::string foregroundAppId(const Json &payload);
+
+/// A `response` that did not say `returnValue: false`. An `error` is never one.
+bool isSuccess(const SsapMessage &message);
+
+/**
+ * @brief On or off from a getPowerState answer.
+ *
+ * "Active" and "Screen Off" are a TV that is on (the second plays sound with
+ * the panel dark); "Active Standby", "Suspend" and "Power Off" are not. Empty
+ * when the answer names no state.
+ */
+std::optional<bool> powerOnFrom(const Json &payload);
+
+struct VolumeState {
+    std::optional<int> volume; ///< 0..100
+    std::optional<bool> muted;
+};
+
+/// From getVolume: `volume`/`muted` at the top on webOS 4, inside
+/// `volumeStatus` (`volume`/`muteStatus`) on later sets.
+VolumeState volumeFrom(const Json &payload);
+
+struct ExternalInput {
+    std::string id;    ///< HDMI_1, what switchInput takes
+    std::string label; ///< as the TV names it
+    std::string appId; ///< the app that is in front while the input shows
+};
+
+std::vector<ExternalInput> inputsFrom(const Json &payload);
+
+/// The magic packet for `mac` (any of `aa:bb:..`, `aa-bb-..`, `aabb..`); empty
+/// when it is not a MAC.
+std::string wakeOnLanPacket(std::string_view mac);
 
 /// id -> title from a listLaunchPoints answer: the full list first, then one
 /// launch point per later change.

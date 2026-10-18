@@ -1,5 +1,7 @@
 #include "webos_protocol.h"
 
+#include <algorithm>
+
 namespace phicore::webos::ipc {
 
 namespace {
@@ -168,6 +170,89 @@ void mergeLaunchPoints(const Json &payload, std::map<std::string, std::string> &
         else
             add(*one);
     }
+}
+
+bool isSuccess(const SsapMessage &message)
+{
+    if (message.type != "response")
+        return false;
+    const auto value = message.payload.find("returnValue");
+    return value == message.payload.end() || !value->is_boolean() || value->get<bool>();
+}
+
+std::optional<bool> powerOnFrom(const Json &payload)
+{
+    const std::string state = jsonString(payload, "state");
+    if (state.empty())
+        return std::nullopt;
+    return state == "Active" || state == "Screen Off" || state == "Screen Saver";
+}
+
+VolumeState volumeFrom(const Json &payload)
+{
+    VolumeState out;
+    const auto read = [&out](const Json &from, const char *muteKey) {
+        if (const auto v = from.find("volume"); v != from.end() && v->is_number())
+            out.volume = std::clamp(v->get<int>(), 0, 100);
+        if (const auto m = from.find(muteKey); m != from.end() && m->is_boolean())
+            out.muted = m->get<bool>();
+    };
+    if (const auto status = payload.find("volumeStatus"); status != payload.end() && status->is_object())
+        read(*status, "muteStatus");
+    else
+        read(payload, "muted");
+    return out;
+}
+
+std::vector<ExternalInput> inputsFrom(const Json &payload)
+{
+    std::vector<ExternalInput> out;
+    const auto devices = payload.find("devices");
+    if (devices == payload.end() || !devices->is_array())
+        return out;
+    for (const Json &device : *devices) {
+        ExternalInput input;
+        input.id = jsonString(device, "id");
+        input.label = jsonString(device, "label");
+        input.appId = jsonString(device, "appId");
+        if (input.id.empty())
+            continue;
+        if (input.label.empty())
+            input.label = input.id;
+        out.push_back(std::move(input));
+    }
+    return out;
+}
+
+std::string wakeOnLanPacket(std::string_view mac)
+{
+    std::string bytes;
+    int nibble = -1;
+    for (const char c : mac) {
+        int value = -1;
+        if (c >= '0' && c <= '9')
+            value = c - '0';
+        else if (c >= 'a' && c <= 'f')
+            value = c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F')
+            value = c - 'A' + 10;
+        else if (c == ':' || c == '-' || c == '.')
+            continue;
+        else
+            return {};
+        if (nibble < 0) {
+            nibble = value;
+        } else {
+            bytes += static_cast<char>((nibble << 4) | value);
+            nibble = -1;
+        }
+    }
+    if (bytes.size() != 6 || nibble >= 0)
+        return {};
+    std::string packet(6, static_cast<char>(0xFF));
+    for (int i = 0; i < 16; ++i)
+        packet += bytes;
+    return packet;
 }
 
 } // namespace phicore::webos::ipc

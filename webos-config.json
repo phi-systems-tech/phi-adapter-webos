@@ -3,7 +3,10 @@
     {
       "kind": "ssdp",
       "ssdpSt": "urn:lge-com:service:webos-second-screen:1",
-      "defaultPort": 3001
+      "defaultPort": 3001,
+      "hints": {
+        "portOverride": 3001
+      }
     }
   ]
 }

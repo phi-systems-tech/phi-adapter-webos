@@ -43,7 +43,7 @@ bool Pairing::start(const WebosSettings &settings, std::chrono::milliseconds tim
     callbacks.textMessage = [this](std::string_view text) { onText(text); };
     callbacks.closed = [this](const std::string &message) {
         Result result;
-        result.error = "TV at " + m_settings.host + " not reachable: "
+        result.error = "TV at " + m_settings.url() + " not reachable: "
                        + (message.empty() ? std::string("connection closed") : message);
         finish(std::move(result));
     };

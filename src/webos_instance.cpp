@@ -147,7 +147,7 @@ private:
             return;
         if (m_wasUnreachable) {
             log(sdk::LogLevel::Info, sdk::LogCategory::Network, "TV at %1 answers again",
-                {v1::Utf8String(m_settings.host)});
+                {v1::Utf8String(m_settings.url())});
             m_wasUnreachable = false;
         }
         m_lastActivityMs = nowMs();
@@ -236,10 +236,10 @@ private:
     {
         if (!m_wasUnreachable || loud) {
             log(sdk::LogLevel::Info, sdk::LogCategory::Network, "TV at %1 not reachable: %2",
-                {v1::Utf8String(m_settings.host), v1::Utf8String(why)});
+                {v1::Utf8String(m_settings.url()), v1::Utf8String(why)});
         } else {
             log(sdk::LogLevel::Debug, sdk::LogCategory::Network, "TV at %1 not reachable: %2",
-                {v1::Utf8String(m_settings.host), v1::Utf8String(why)});
+                {v1::Utf8String(m_settings.url()), v1::Utf8String(why)});
         }
         m_wasUnreachable = true;
     }

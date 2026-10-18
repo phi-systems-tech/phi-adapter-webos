@@ -1,3 +1,10 @@
+phi-adapter-webos (0.1.1-1) trixie; urgency=medium
+
+  * Pair with TV from the settings form: a factory action shows the prompt on
+    the TV and puts the client key and the pinned certificate into the form.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 18 Oct 2026 21:00:00 +0200
+
 phi-adapter-webos (0.1.0-1) trixie; urgency=medium
 
   * First cut: pairing over SSAP (wss://tv:3001, certificate pinned on first

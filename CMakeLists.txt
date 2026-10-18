@@ -29,6 +29,7 @@ add_library(phi_adapter_webos_core STATIC
     src/webos_instance.cpp
     src/webos_json.cpp
     src/webos_model.cpp
+    src/webos_pairing.cpp
     src/webos_protocol.cpp
     src/webos_schema.cpp
     src/webos_settings.cpp

@@ -86,7 +86,19 @@ v1::AdapterCapabilities capabilities()
     caps.required = v1::AdapterRequirement::Host | v1::AdapterRequirement::ManualConfirm
                     | v1::AdapterRequirement::UsesRetryInterval;
     caps.optional = v1::AdapterRequirement::Port | v1::AdapterRequirement::SupportsTls;
-    caps.flags = v1::AdapterCapability::None;
+    caps.flags = v1::AdapterCapability::SupportsProbe;
+
+    // The TV hands out a key only to a prompt someone accepts; the form gets
+    // it here before the instance exists, and the certificate with it.
+    v1::AdapterActionDescriptor pair;
+    pair.id = kPairActionId;
+    pair.label = "Pair with TV";
+    pair.description = "Shows a prompt on the TV; accept it with the remote.";
+    pair.resultField = "clientKey";
+    // The pairing's own wait plus the connect, so the TV's answer is never
+    // cut off by core's deadline.
+    pair.timeoutMs = static_cast<int>(kPairingWait.count()) + 15000;
+    caps.factoryActions.push_back(pair);
     return caps;
 }
 

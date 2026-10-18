@@ -1,3 +1,11 @@
+phi-adapter-webos (0.2.0-1) trixie; urgency=medium
+
+  * Control: power (off over SSAP, on by Wake-on-LAN to the MAC learnt while
+    the TV is on), volume, mute, input with the TV's own names, app launch,
+    play/pause/stop.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 18 Oct 2026 21:24:33 +0200
+
 phi-adapter-webos (0.1.2-1) trixie; urgency=medium
 
   * Discovery names port 3001 instead of the UPnP port, and an unreachable TV

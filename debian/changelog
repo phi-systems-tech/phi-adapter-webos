@@ -1,0 +1,6 @@
+phi-adapter-webos (0.1.0-1) trixie; urgency=medium
+
+  * First cut: pairing over SSAP (wss://tv:3001, certificate pinned on first
+    contact), connectivity, playback state and the app in front.
+
+ -- Marius Schumacher <marius.schumacher@phisys.com>  Sun, 18 Oct 2026 20:30:00 +0200

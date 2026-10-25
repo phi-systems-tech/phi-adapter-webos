@@ -67,21 +67,21 @@ protected:
     /// certificate back into the form.
     void onFactoryActionInvoke(const sdk::AdapterActionInvokeRequest &request) override
     {
-        if (request.actionId != kPairActionId) {
-            answer(request.cmdId, v1::CmdStatus::NotSupported, "Unsupported factory action");
+        if (request.actionId() != kPairActionId) {
+            answer(request.cmdId(), v1::CmdStatus::NotSupported, "Unsupported factory action");
             return;
         }
-        const WebosSettings settings = settingsFromAdapter(v1::Adapter{}, parseObject(request.paramsJson));
+        const WebosSettings settings = settingsFromAdapter(v1::Adapter{}, parseObject(request.paramsJson()));
         if (!m_pairing) {
             phi::runtime::Loop *loop = phi::runtime::Loop::current();
             if (!loop) {
-                answer(request.cmdId, v1::CmdStatus::Failure, "No factory event loop");
+                answer(request.cmdId(), v1::CmdStatus::Failure, "No factory event loop");
                 return;
             }
             m_pairing = std::make_unique<Pairing>(*loop);
         }
 
-        const v1::CmdId cmdId = request.cmdId;
+        const v1::CmdId cmdId = request.cmdId();
         std::string error;
         const bool started = m_pairing->start(settings, kPairingWait, [this, cmdId](const Pairing::Result &result) {
             if (!result.ok) {
@@ -89,14 +89,11 @@ protected:
                        result.error);
                 return;
             }
-            v1::ActionResponse response;
-            response.id = cmdId;
-            response.status = v1::CmdStatus::Success;
-            response.resultType = v1::ActionResultType::String;
-            response.resultValue = result.clientKey;
-            response.formValues.push_back({"clientKey", v1::ScalarValue(result.clientKey)});
+            v1::ActionResponse response = v1::ActionResponse::success(cmdId);
+            response.setResult(v1::ScalarValue(result.clientKey), v1::ActionResultType::String);
+            response.addFormValue("clientKey", v1::ScalarValue(result.clientKey));
             if (!result.certFingerprint.empty())
-                response.formValues.push_back({"certFingerprint", v1::ScalarValue(result.certFingerprint)});
+                response.addFormValue("certFingerprint", v1::ScalarValue(result.certFingerprint));
             sendAction(std::move(response));
         }, &error);
         if (!started)
@@ -113,11 +110,7 @@ protected:
 private:
     void answer(v1::CmdId cmdId, v1::CmdStatus status, const std::string &error)
     {
-        v1::ActionResponse response;
-        response.id = cmdId;
-        response.status = status;
-        response.error = error;
-        response.resultType = v1::ActionResultType::None;
+        v1::ActionResponse response = v1::ActionResponse().setId(cmdId).setStatus(status).setError(error);
         sendAction(std::move(response));
     }
 

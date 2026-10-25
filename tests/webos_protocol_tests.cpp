@@ -168,10 +168,7 @@ void testMergeLaunchPoints()
 v1::Adapter adapterWith(const char *ip, const char *host, std::uint16_t port, const char *externalId = "")
 {
     v1::Adapter a;
-    a.ip = ip;
-    a.host = host;
-    a.port = port;
-    a.externalId = externalId;
+    a.setIp(ip).setHost(host).setPort(port).setExternalId(externalId);
     return a;
 }
 
@@ -257,8 +254,8 @@ void testDeviceIdFor()
 
 bool hasRw(const v1::Channel &c, bool writable)
 {
-    return v1::hasFlag(c.flags, v1::ChannelFlag::Readable) && v1::hasFlag(c.flags, v1::ChannelFlag::Reportable)
-           && v1::hasFlag(c.flags, v1::ChannelFlag::Writable) == writable;
+    return v1::hasFlag(c.flags(), v1::ChannelFlag::Readable) && v1::hasFlag(c.flags(), v1::ChannelFlag::Reportable)
+           && v1::hasFlag(c.flags(), v1::ChannelFlag::Writable) == writable;
 }
 
 bool sameChoices(const v1::AdapterConfigOptionList &a, const v1::AdapterConfigOptionList &b)
@@ -266,7 +263,7 @@ bool sameChoices(const v1::AdapterConfigOptionList &a, const v1::AdapterConfigOp
     if (a.size() != b.size())
         return false;
     for (std::size_t i = 0; i < a.size(); ++i) {
-        if (a[i].value != b[i].value || a[i].label != b[i].label)
+        if (a[i].value() != b[i].value() || a[i].label() != b[i].label())
             return false;
     }
     return true;
@@ -280,75 +277,75 @@ void testBuildChannels()
     PHI_CHECK(channels.size() == 7);
     if (channels.size() != 7)
         return;
-    PHI_CHECK(channels[0].externalId == "power");
-    PHI_CHECK(channels[1].externalId == "volume");
-    PHI_CHECK(channels[2].externalId == "mute");
-    PHI_CHECK(channels[3].externalId == "input");
-    PHI_CHECK(channels[4].externalId == "app");
-    PHI_CHECK(channels[5].externalId == "playState");
-    PHI_CHECK(channels[6].externalId == "connectivity");
+    PHI_CHECK(channels[0].externalId() == "power");
+    PHI_CHECK(channels[1].externalId() == "volume");
+    PHI_CHECK(channels[2].externalId() == "mute");
+    PHI_CHECK(channels[3].externalId() == "input");
+    PHI_CHECK(channels[4].externalId() == "app");
+    PHI_CHECK(channels[5].externalId() == "playState");
+    PHI_CHECK(channels[6].externalId() == "connectivity");
 
-    PHI_CHECK(channels[0].kind == v1::ChannelKind::PowerOnOff);
-    PHI_CHECK(channels[0].dataType == v1::ChannelDataType::Bool);
+    PHI_CHECK(channels[0].kind() == v1::ChannelKind::PowerOnOff);
+    PHI_CHECK(channels[0].dataType() == v1::ChannelDataType::Bool);
     PHI_CHECK(hasRw(channels[0], true));
 
-    PHI_CHECK(channels[1].kind == v1::ChannelKind::Volume);
-    PHI_CHECK(channels[1].dataType == v1::ChannelDataType::Int);
-    PHI_CHECK(channels[1].minValue == 0.0 && channels[1].maxValue == 100.0 && channels[1].stepValue == 1.0);
+    PHI_CHECK(channels[1].kind() == v1::ChannelKind::Volume);
+    PHI_CHECK(channels[1].dataType() == v1::ChannelDataType::Int);
+    PHI_CHECK(channels[1].minValue() == 0.0 && channels[1].maxValue() == 100.0 && channels[1].stepValue() == 1.0);
     PHI_CHECK(hasRw(channels[1], true));
 
-    PHI_CHECK(channels[2].kind == v1::ChannelKind::Mute);
-    PHI_CHECK(channels[2].dataType == v1::ChannelDataType::Bool);
+    PHI_CHECK(channels[2].kind() == v1::ChannelKind::Mute);
+    PHI_CHECK(channels[2].dataType() == v1::ChannelDataType::Bool);
     PHI_CHECK(hasRw(channels[2], true));
 
-    PHI_CHECK(channels[3].kind == v1::ChannelKind::HdmiInput);
-    PHI_CHECK(channels[3].dataType == v1::ChannelDataType::String);
+    PHI_CHECK(channels[3].kind() == v1::ChannelKind::HdmiInput);
+    PHI_CHECK(channels[3].dataType() == v1::ChannelDataType::String);
     PHI_CHECK(hasRw(channels[3], true));
-    PHI_CHECK(sameChoices(channels[3].choices, inputs));
+    PHI_CHECK(sameChoices(channels[3].choices(), inputs));
 
-    PHI_CHECK(channels[4].kind == v1::ChannelKind::Unknown);
-    PHI_CHECK(channels[4].dataType == v1::ChannelDataType::String);
+    PHI_CHECK(channels[4].kind() == v1::ChannelKind::Unknown);
+    PHI_CHECK(channels[4].dataType() == v1::ChannelDataType::String);
     PHI_CHECK(hasRw(channels[4], true));
-    PHI_CHECK(sameChoices(channels[4].choices, apps));
+    PHI_CHECK(sameChoices(channels[4].choices(), apps));
 
-    PHI_CHECK(channels[5].dataType == v1::ChannelDataType::String);
+    PHI_CHECK(channels[5].dataType() == v1::ChannelDataType::String);
     PHI_CHECK(hasRw(channels[5], false));
     std::vector<std::string> values;
-    for (const auto &choice : channels[5].choices)
-        values.push_back(choice.value);
+    for (const auto &choice : channels[5].choices())
+        values.push_back(choice.value());
     PHI_CHECK((values == std::vector<std::string>{"playing", "paused", "idle", "unknown"}));
-    PHI_CHECK(channels[5].choices.size() == 4 && channels[5].choices[0].label == "Playing");
+    PHI_CHECK(channels[5].choices().size() == 4 && channels[5].choices()[0].label() == "Playing");
 
-    PHI_CHECK(channels[6].kind == v1::ChannelKind::ConnectivityStatus);
-    PHI_CHECK(channels[6].dataType == v1::ChannelDataType::Enum);
+    PHI_CHECK(channels[6].kind() == v1::ChannelKind::ConnectivityStatus);
+    PHI_CHECK(channels[6].dataType() == v1::ChannelDataType::Enum);
     PHI_CHECK(hasRw(channels[6], false));
 
     // Empty lists give empty choices, still seven channels.
     const v1::ChannelList bare = buildChannels({}, {});
-    PHI_CHECK(bare.size() == 7 && bare[3].choices.empty() && bare[4].choices.empty());
+    PHI_CHECK(bare.size() == 7 && bare[3].choices().empty() && bare[4].choices().empty());
 }
 
 void testBuildInputAndAppChannel()
 {
     const v1::AdapterConfigOptionList inputs{{"HDMI_3", "Switch"}};
     const v1::Channel in = buildInputChannel(inputs);
-    PHI_CHECK(in.externalId == "input" && in.kind == v1::ChannelKind::HdmiInput);
-    PHI_CHECK(sameChoices(in.choices, inputs));
+    PHI_CHECK(in.externalId() == "input" && in.kind() == v1::ChannelKind::HdmiInput);
+    PHI_CHECK(sameChoices(in.choices(), inputs));
     const v1::AdapterConfigOptionList apps{{"netflix", "Netflix"}, {"plex", "Plex"}};
     const v1::Channel app = buildAppChannel(apps);
-    PHI_CHECK(app.externalId == "app" && app.kind == v1::ChannelKind::Unknown);
-    PHI_CHECK(sameChoices(app.choices, apps));
+    PHI_CHECK(app.externalId() == "app" && app.kind() == v1::ChannelKind::Unknown);
+    PHI_CHECK(sameChoices(app.choices(), apps));
 }
 
 void testBuildDevice()
 {
     const v1::Device d = buildDevice("tv1", "Living room", "OLED55C1");
-    PHI_CHECK(d.externalId == "tv1");
-    PHI_CHECK(d.deviceClass == v1::DeviceClass::MediaPlayer);
-    PHI_CHECK(d.manufacturer == "LG Electronics");
-    PHI_CHECK(d.name == "Living room");
-    PHI_CHECK(d.model == "OLED55C1");
-    PHI_CHECK(d.mediaPlayerFeatures
+    PHI_CHECK(d.externalId() == "tv1");
+    PHI_CHECK(d.deviceClass() == v1::DeviceClass::MediaPlayer);
+    PHI_CHECK(d.manufacturer() == "LG Electronics");
+    PHI_CHECK(d.name() == "Living room");
+    PHI_CHECK(d.model() == "OLED55C1");
+    PHI_CHECK(d.mediaPlayerFeatures()
               == (v1::MediaPlayerFeature::Play | v1::MediaPlayerFeature::Pause | v1::MediaPlayerFeature::Stop));
 }
 

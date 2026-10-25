@@ -22,12 +22,8 @@ constexpr const char kIconSvg[] =
 v1::AdapterConfigField field(const char *key, v1::AdapterConfigFieldType type, const char *label,
                              const char *description, v1::ScalarValue defaultValue = {})
 {
-    v1::AdapterConfigField out;
-    out.key = key;
-    out.type = type;
-    out.label = label;
-    out.description = description;
-    out.defaultValue = std::move(defaultValue);
+    v1::AdapterConfigField out(key, type, label);
+    out.setDescription(description).setDefaultValue(std::move(defaultValue));
     return out;
 }
 
@@ -38,24 +34,24 @@ v1::AdapterConfigSection section()
     using Type = v1::AdapterConfigFieldType;
     using Flag = v1::AdapterConfigFieldFlag;
     v1::AdapterConfigSection out;
-    out.title = "LG webOS TV";
-    out.description = "The TV asks once to allow the connection; \"LG Connect Apps\" has to be on.";
-    out.layout.columns = 2;
+    out.setTitle("LG webOS TV")
+        .setDescription("The TV asks once to allow the connection; \"LG Connect Apps\" has to be on.");
+    out.layout().setColumns(2);
 
     v1::AdapterConfigField host = field("host", Type::Hostname, "TV host", "IP address or hostname of the TV.");
-    host.flags = Flag::Required;
+    host.setFlags(Flag::Required);
     v1::AdapterConfigField port = field("port", Type::Port, "Port", "3001 with TLS, 3000 on sets from before 2018.",
                                         std::int64_t{kDefaultTlsPort});
-    port.layout.controlWidth = v1::AdapterConfigSize::Narrow;
+    port.layout().setControlWidth(v1::AdapterConfigSize::Narrow);
     v1::AdapterConfigField useTls = field("useTls", Type::Boolean, "Use TLS",
                                           "The certificate is the TV's own; it is pinned on first contact.", true);
     v1::AdapterConfigField retry = field("retryIntervalMs", Type::Integer, "Retry interval",
                                          "Reconnect interval while the TV is off or unreachable.",
                                          std::int64_t{kDefaultRetryIntervalMs});
-    retry.layout.controlWidth = v1::AdapterConfigSize::Narrow;
+    retry.layout().setControlWidth(v1::AdapterConfigSize::Narrow);
     v1::AdapterConfigField clientKey = field("clientKey", Type::Password, "Client key",
                                              "Given by the TV when the prompt is accepted. Clear it to pair again.");
-    clientKey.flags = Flag::Secret;
+    clientKey.setFlags(Flag::Secret);
     v1::AdapterConfigField fingerprint = field("certFingerprint", Type::String, "Certificate (SHA-256)",
                                                "Pinned on first contact. Clear it if the TV got a new one.");
 
@@ -63,7 +59,7 @@ v1::AdapterConfigSection section()
                                        "For switching the TV on (Wake-on-LAN). Learnt while the TV is on; \"Turn on"
                                        " via Wi-Fi\" has to be on in the TV's settings.");
 
-    out.fields = {host, port, useTls, retry, clientKey, fingerprint, mac};
+    out.setFields({host, port, useTls, retry, clientKey, fingerprint, mac});
     return out;
 }
 
@@ -87,30 +83,27 @@ v1::Utf8String iconSvg()
 v1::AdapterCapabilities capabilities()
 {
     v1::AdapterCapabilities caps;
-    caps.required = v1::AdapterRequirement::Host | v1::AdapterRequirement::ManualConfirm
-                    | v1::AdapterRequirement::UsesRetryInterval;
-    caps.optional = v1::AdapterRequirement::Port | v1::AdapterRequirement::SupportsTls;
-    caps.flags = v1::AdapterCapability::SupportsProbe;
+    caps.setRequired(v1::AdapterRequirement::Host | v1::AdapterRequirement::ManualConfirm
+                     | v1::AdapterRequirement::UsesRetryInterval)
+        .setOptional(v1::AdapterRequirement::Port | v1::AdapterRequirement::SupportsTls)
+        .setFlags(v1::AdapterCapability::SupportsProbe);
 
     // The TV hands out a key only to a prompt someone accepts; the form gets
     // it here before the instance exists, and the certificate with it.
-    v1::AdapterActionDescriptor pair;
-    pair.id = kPairActionId;
-    pair.label = "Pair with TV";
-    pair.description = "Shows a prompt on the TV; accept it with the remote.";
-    pair.resultField = "clientKey";
+    v1::AdapterActionDescriptor pair(kPairActionId, "Pair with TV",
+                                     "Shows a prompt on the TV; accept it with the remote.");
+    pair.setResultField("clientKey");
     // The pairing's own wait plus the connect, so the TV's answer is never
     // cut off by core's deadline.
-    pair.timeoutMs = static_cast<int>(kPairingWait.count()) + 15000;
-    caps.factoryActions.push_back(pair);
+    pair.setTimeoutMs(static_cast<int>(kPairingWait.count()) + 15000);
+    caps.addFactoryAction(pair);
     return caps;
 }
 
 v1::AdapterConfigSchema configSchema()
 {
     v1::AdapterConfigSchema schema;
-    schema.factory = section();
-    schema.instance = section();
+    schema.setFactory(section()).setInstance(section());
     return schema;
 }
 

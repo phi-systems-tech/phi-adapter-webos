@@ -19,14 +19,14 @@ WebosSettings settingsFromAdapter(const v1::Adapter &adapter, const Json &meta)
     WebosSettings out;
     out.host = str::trimmed(jsonString(meta, "host"));
     if (out.host.empty())
-        out.host = str::trimmed(adapter.ip);
+        out.host = str::trimmed(adapter.ip());
     if (out.host.empty())
-        out.host = str::trimmed(adapter.host);
+        out.host = str::trimmed(adapter.host());
 
     if (meta.contains("useTls") && meta["useTls"].is_boolean())
         out.useTls = meta["useTls"].get<bool>();
 
-    const int fallbackPort = adapter.port != 0 ? adapter.port : (out.useTls ? kDefaultTlsPort : kDefaultPlainPort);
+    const int fallbackPort = adapter.port() != 0 ? adapter.port() : (out.useTls ? kDefaultTlsPort : kDefaultPlainPort);
     const int port = jsonInt(meta, "port", fallbackPort);
     out.port = static_cast<std::uint16_t>(port > 0 && port <= 0xFFFF ? port : fallbackPort);
 
@@ -40,8 +40,8 @@ WebosSettings settingsFromAdapter(const v1::Adapter &adapter, const Json &meta)
 
 std::string deviceIdFor(const v1::Adapter &adapter, const WebosSettings &settings)
 {
-    if (!adapter.externalId.empty())
-        return adapter.externalId;
+    if (!adapter.externalId().empty())
+        return adapter.externalId();
     if (!settings.host.empty())
         return settings.host;
     return "webos-tv";

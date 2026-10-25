@@ -132,8 +132,8 @@ protected:
     {
         if (!m_running)
             return;
-        m_info = request.adapter;
-        const WebosSettings next = settingsFromAdapter(request.adapter, parseObject(request.adapter.metaJson));
+        m_info = request.adapter();
+        const WebosSettings next = settingsFromAdapter(request.adapter(), parseObject(request.adapter().metaJson()));
 
         // Every meta patch this instance sends comes back as a config change;
         // only a change it did not make itself is a reason to dial again.
@@ -162,66 +162,66 @@ protected:
 
     void onChannelInvoke(const sdk::ChannelInvokeRequest &request) override
     {
-        if (request.deviceExternalId != m_deviceId) {
-            answer(request.cmdId, v1::CmdStatus::NotSupported, "Unknown device");
+        if (request.deviceExternalId() != m_deviceId) {
+            answer(request.cmdId(), v1::CmdStatus::NotSupported, "Unknown device");
             return;
         }
-        const std::string &channel = request.channelExternalId;
+        const std::string &channel = request.channelExternalId();
         if (channel == kChannelPower) {
-            const std::optional<bool> on = scalarToBool(request.value);
+            const std::optional<bool> on = scalarToBool(request.value());
             if (!on) {
-                answer(request.cmdId, v1::CmdStatus::InvalidArgument, "Power takes on or off");
+                answer(request.cmdId(), v1::CmdStatus::InvalidArgument, "Power takes on or off");
                 return;
             }
-            setPower(request.cmdId, *on);
+            setPower(request.cmdId(), *on);
             return;
         }
         if (!m_registered) {
-            answer(request.cmdId, v1::CmdStatus::TemporarilyOffline, "The TV is off or not reachable");
+            answer(request.cmdId(), v1::CmdStatus::TemporarilyOffline, "The TV is off or not reachable");
             return;
         }
         if (channel == kChannelVolume) {
-            const std::optional<double> volume = scalarToDouble(request.value);
+            const std::optional<double> volume = scalarToDouble(request.value());
             if (!volume) {
-                answer(request.cmdId, v1::CmdStatus::InvalidArgument, "Volume takes 0 to 100");
+                answer(request.cmdId(), v1::CmdStatus::InvalidArgument, "Volume takes 0 to 100");
                 return;
             }
             const int level = std::clamp(static_cast<int>(std::lround(*volume)), 0, 100);
-            sendCommand(request.cmdId, kUriSetVolume, {{"volume", level}});
+            sendCommand(request.cmdId(), kUriSetVolume, {{"volume", level}});
         } else if (channel == kChannelMute) {
-            const std::optional<bool> muted = scalarToBool(request.value);
+            const std::optional<bool> muted = scalarToBool(request.value());
             if (!muted) {
-                answer(request.cmdId, v1::CmdStatus::InvalidArgument, "Mute takes on or off");
+                answer(request.cmdId(), v1::CmdStatus::InvalidArgument, "Mute takes on or off");
                 return;
             }
-            sendCommand(request.cmdId, kUriSetMute, {{"mute", *muted}});
+            sendCommand(request.cmdId(), kUriSetMute, {{"mute", *muted}});
         } else if (channel == kChannelInput) {
-            const std::string input = scalarToString(request.value);
+            const std::string input = scalarToString(request.value());
             if (input.empty()) {
-                answer(request.cmdId, v1::CmdStatus::InvalidArgument, "No input given");
+                answer(request.cmdId(), v1::CmdStatus::InvalidArgument, "No input given");
                 return;
             }
-            sendCommand(request.cmdId, kUriSwitchInput, {{"inputId", input}});
+            sendCommand(request.cmdId(), kUriSwitchInput, {{"inputId", input}});
         } else if (channel == kChannelApp) {
-            const std::string app = scalarToString(request.value);
+            const std::string app = scalarToString(request.value());
             if (app.empty()) {
-                answer(request.cmdId, v1::CmdStatus::InvalidArgument, "No app given");
+                answer(request.cmdId(), v1::CmdStatus::InvalidArgument, "No app given");
                 return;
             }
-            sendCommand(request.cmdId, kUriLaunch, {{"id", app}});
+            sendCommand(request.cmdId(), kUriLaunch, {{"id", app}});
         } else {
-            answer(request.cmdId, v1::CmdStatus::NotSupported, "This channel is read-only");
+            answer(request.cmdId(), v1::CmdStatus::NotSupported, "This channel is read-only");
         }
     }
 
     void onMediaPlayerInvoke(const sdk::MediaPlayerInvokeRequest &request) override
     {
-        if (request.deviceExternalId != m_deviceId) {
-            answer(request.cmdId, v1::CmdStatus::NotSupported, "Unknown device");
+        if (request.deviceExternalId() != m_deviceId) {
+            answer(request.cmdId(), v1::CmdStatus::NotSupported, "Unknown device");
             return;
         }
         const char *uri = nullptr;
-        switch (request.action) {
+        switch (request.action()) {
         case v1::MediaPlayerAction::Play:
             uri = kUriPlay;
             break;
@@ -232,14 +232,14 @@ protected:
             uri = kUriStop;
             break;
         default:
-            answer(request.cmdId, v1::CmdStatus::NotSupported, "Media player action not supported");
+            answer(request.cmdId(), v1::CmdStatus::NotSupported, "Media player action not supported");
             return;
         }
         if (!m_registered) {
-            answer(request.cmdId, v1::CmdStatus::TemporarilyOffline, "The TV is off or not reachable");
+            answer(request.cmdId(), v1::CmdStatus::TemporarilyOffline, "The TV is off or not reachable");
             return;
         }
-        sendCommand(request.cmdId, uri, Json::object());
+        sendCommand(request.cmdId(), uri, Json::object());
     }
 
 private:
@@ -640,11 +640,7 @@ private:
 
     void answer(v1::CmdId cmdId, v1::CmdStatus status, const std::string &error)
     {
-        v1::CmdResponse response;
-        response.id = cmdId;
-        response.status = status;
-        response.error = error;
-        response.tsMs = nowMs();
+        v1::CmdResponse response = v1::CmdResponse().setId(cmdId).setStatus(status).setError(error).setTsMs(nowMs());
         v1::Utf8String sendError;
         if (!sendResult(response, &sendError))
             log(sdk::LogLevel::Error, sdk::LogCategory::Internal, "failed to send a command result: %1",
@@ -667,7 +663,7 @@ private:
         for (const auto &[id, title] : m_titles)
             out.push_back({id, title});
         std::sort(out.begin(), out.end(),
-                  [](const v1::AdapterConfigOption &a, const v1::AdapterConfigOption &b) { return a.label < b.label; });
+                  [](const v1::AdapterConfigOption &a, const v1::AdapterConfigOption &b) { return a.label() < b.label(); });
         return out;
     }
 
@@ -675,7 +671,7 @@ private:
     {
         if (m_deviceId.empty() || (m_deviceSent && !force))
             return;
-        const std::string name = str::trimmed(m_info.name).empty() ? std::string("LG TV") : str::trimmed(m_info.name);
+        const std::string name = str::trimmed(m_info.name()).empty() ? std::string("LG TV") : str::trimmed(m_info.name());
         v1::Utf8String error;
         if (!sendDeviceUpdated(buildDevice(m_deviceId, name, m_model), buildChannels(inputChoices(), appChoices()),
                                &error)) {
@@ -699,7 +695,7 @@ private:
         v1::Utf8String error;
         if (!sendChannelUpdated(m_deviceId, channel, &error))
             log(sdk::LogLevel::Error, sdk::LogCategory::Internal, "failed to send channelUpdated(%1): %2",
-                {v1::Utf8String(channel.externalId), error});
+                {v1::Utf8String(channel.externalId()), error});
     }
 
     void setConnected(bool connected)

@@ -86,7 +86,8 @@ v1::AdapterCapabilities capabilities()
     caps.setRequired(v1::AdapterRequirement::Host | v1::AdapterRequirement::ManualConfirm
                      | v1::AdapterRequirement::UsesRetryInterval)
         .setOptional(v1::AdapterRequirement::Port | v1::AdapterRequirement::SupportsTls)
-        .setFlags(v1::AdapterCapability::SupportsProbe)
+        // The TV talks to LG's servers itself (apps, updates, ThinQ).
+        .setFlags(v1::AdapterCapability::SupportsProbe | v1::AdapterCapability::VendorCloudLink)
         .setTopologies(v1::Topology::Local);
 
     // The TV hands out a key only to a prompt someone accepts; the form gets
